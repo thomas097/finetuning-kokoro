@@ -129,7 +129,7 @@ class KModel(torch.nn.Module):
         input_ids = torch.LongTensor([[0, *input_ids, 0]]).to(self.device)
         ref_s = ref_s.to(self.device)
         spec, phase = self.forward_with_tokens(input_ids, ref_s, speed)
-        return spec
+        return spec, phase
         # audio = audio.squeeze().cpu()
         # pred_dur = pred_dur.cpu() if pred_dur is not None else None
         #

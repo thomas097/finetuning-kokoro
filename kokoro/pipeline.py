@@ -343,6 +343,5 @@ class KPipeline:
                 continue
             elif len(ps) > 510:
                 ps = ps[:510]
-            output = KPipeline.infer(model, ps, pack, speed)
-            return output
+            return KPipeline.infer(model, ps, pack, speed)
 

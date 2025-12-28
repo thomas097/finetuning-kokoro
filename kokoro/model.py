@@ -59,8 +59,11 @@ class KModel(torch.nn.Module):
             depth=config['n_layer'], n_symbols=config['n_token']
         )
         self.decoder = Decoder(
-            dim_in=config['hidden_dim'], style_dim=config['style_dim'],
-            dim_out=config['n_mels'], disable_complex=disable_complex, **config['istftnet']
+            dim_in=config['hidden_dim'], 
+            style_dim=config['style_dim'],
+            dim_out=config['n_mels'], 
+            disable_complex=disable_complex, 
+            **config['istftnet']
         )
         if not model:
             model = hf_hub_download(repo_id=repo_id, filename=KModel.MODEL_NAMES[repo_id])

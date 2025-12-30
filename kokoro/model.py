@@ -41,11 +41,9 @@ class KModel(torch.nn.Module):
         self.repo_id = repo_id
         if not isinstance(config, dict):
             if not config:
-
                 config = hf_hub_download(repo_id=repo_id, filename='config.json')
             with open(config, 'r', encoding='utf-8') as r:
                 config = json.load(r)
-
         self.vocab = config['vocab']
         self.bert = CustomAlbert(AlbertConfig(vocab_size=config['n_token'], **config['plbert']))
         self.bert_encoder = torch.nn.Linear(self.bert.config.hidden_size, config['hidden_dim'])
@@ -59,11 +57,8 @@ class KModel(torch.nn.Module):
             depth=config['n_layer'], n_symbols=config['n_token']
         )
         self.decoder = Decoder(
-            dim_in=config['hidden_dim'], 
-            style_dim=config['style_dim'],
-            dim_out=config['n_mels'], 
-            disable_complex=disable_complex, 
-            **config['istftnet']
+            dim_in=config['hidden_dim'], style_dim=config['style_dim'],
+            dim_out=config['n_mels'], disable_complex=disable_complex, **config['istftnet']
         )
         if not model:
             model = hf_hub_download(repo_id=repo_id, filename=KModel.MODEL_NAMES[repo_id])
@@ -72,7 +67,6 @@ class KModel(torch.nn.Module):
             try:
                 getattr(self, key).load_state_dict(state_dict)
             except:
-
                 state_dict = {k[7:]: v for k, v in state_dict.items()}
                 getattr(self, key).load_state_dict(state_dict, strict=False)
 
@@ -85,6 +79,7 @@ class KModel(torch.nn.Module):
         audio: torch.FloatTensor
         pred_dur: Optional[torch.LongTensor] = None
 
+    @torch.no_grad()
     def forward_with_tokens(
         self,
         input_ids: torch.LongTensor,
@@ -116,8 +111,8 @@ class KModel(torch.nn.Module):
         F0_pred, N_pred = self.predictor.F0Ntrain(en, s)
         t_en = self.text_encoder(input_ids, input_lengths, text_mask)
         asr = t_en @ pred_aln_trg
-        spec, phase = self.decoder(asr, F0_pred, N_pred, ref_s[:, :128])
-        return spec, phase
+        audio = self.decoder(asr, F0_pred, N_pred, ref_s[:, :128]).squeeze()
+        return audio, pred_dur
 
     def forward(
         self,
@@ -125,18 +120,15 @@ class KModel(torch.nn.Module):
         ref_s: torch.FloatTensor,
         speed: float = 1,
         return_output: bool = False
-    ) -> torch.FloatTensor:
+    ) -> Union['KModel.Output', torch.FloatTensor]:
         input_ids = list(filter(lambda i: i is not None, map(lambda p: self.vocab.get(p), phonemes)))
-
         assert len(input_ids)+2 <= self.context_length, (len(input_ids)+2, self.context_length)
         input_ids = torch.LongTensor([[0, *input_ids, 0]]).to(self.device)
         ref_s = ref_s.to(self.device)
-        spec, phase = self.forward_with_tokens(input_ids, ref_s, speed)
-        return spec, phase
-        # audio = audio.squeeze().cpu()
-        # pred_dur = pred_dur.cpu() if pred_dur is not None else None
-        #
-        # return self.Output(audio=audio, pred_dur=pred_dur) if return_output else audio
+        audio, pred_dur = self.forward_with_tokens(input_ids, ref_s, speed)
+        audio = audio.squeeze().cpu()
+        pred_dur = pred_dur.cpu() if pred_dur is not None else None
+        return self.Output(audio=audio, pred_dur=pred_dur) if return_output else audio
 
 class KModelForONNX(torch.nn.Module):
     def __init__(self, kmodel: KModel):

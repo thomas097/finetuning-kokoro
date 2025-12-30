@@ -322,8 +322,7 @@ class Generator(nn.Module):
         x = self.conv_post(x)
         spec = torch.exp(x[:,:self.post_n_fft // 2 + 1, :])
         phase = torch.sin(x[:, self.post_n_fft // 2 + 1:, :])
-        # self.stft.inverse(spec, phase)
-        return spec, phase
+        return self.stft.inverse(spec, phase)
 
 
 class UpSample1d(nn.Module):

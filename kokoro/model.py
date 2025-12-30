@@ -113,7 +113,8 @@ class KModel(torch.nn.Module):
         F0_pred, N_pred = self.predictor.F0Ntrain(en, s)
         t_en = self.text_encoder(input_ids, input_lengths, text_mask)
         asr = t_en @ pred_aln_trg
-        audio, spec, phase = self.decoder(asr, F0_pred, N_pred, ref_s[:, :128]).squeeze()
+        audio, spec, phase = self.decoder(asr, F0_pred, N_pred, ref_s[:, :128])
+        audio = audio.squeeze()
         return audio, spec, phase, pred_dur
 
     def forward(

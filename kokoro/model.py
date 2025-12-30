@@ -77,6 +77,8 @@ class KModel(torch.nn.Module):
     @dataclass
     class Output:
         audio: torch.FloatTensor
+        spec: torch.FloatTensor
+        phase: torch.FloatTensor
         pred_dur: Optional[torch.LongTensor] = None
 
     @torch.no_grad()
@@ -111,8 +113,8 @@ class KModel(torch.nn.Module):
         F0_pred, N_pred = self.predictor.F0Ntrain(en, s)
         t_en = self.text_encoder(input_ids, input_lengths, text_mask)
         asr = t_en @ pred_aln_trg
-        audio = self.decoder(asr, F0_pred, N_pred, ref_s[:, :128]).squeeze()
-        return audio, pred_dur
+        audio, spec, phase = self.decoder(asr, F0_pred, N_pred, ref_s[:, :128]).squeeze()
+        return audio, spec, phase, pred_dur
 
     def forward(
         self,
@@ -125,10 +127,10 @@ class KModel(torch.nn.Module):
         assert len(input_ids)+2 <= self.context_length, (len(input_ids)+2, self.context_length)
         input_ids = torch.LongTensor([[0, *input_ids, 0]]).to(self.device)
         ref_s = ref_s.to(self.device)
-        audio, pred_dur = self.forward_with_tokens(input_ids, ref_s, speed)
+        audio, spec, phase, pred_dur = self.forward_with_tokens(input_ids, ref_s, speed)
         audio = audio.squeeze().cpu()
         pred_dur = pred_dur.cpu() if pred_dur is not None else None
-        return self.Output(audio=audio, pred_dur=pred_dur) if return_output else audio
+        return self.Output(audio=audio, spec=spec, phase=phase, pred_dur=pred_dur) if return_output else audio
 
 class KModelForONNX(torch.nn.Module):
     def __init__(self, kmodel: KModel):
@@ -141,5 +143,5 @@ class KModelForONNX(torch.nn.Module):
         ref_s: torch.FloatTensor,
         speed: float = 1
     ) -> tuple[torch.FloatTensor, torch.LongTensor]:
-        waveform, duration = self.kmodel.forward_with_tokens(input_ids, ref_s, speed)
+        waveform, _, _, duration = self.kmodel.forward_with_tokens(input_ids, ref_s, speed)
         return waveform, duration

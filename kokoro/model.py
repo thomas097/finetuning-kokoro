@@ -81,7 +81,6 @@ class KModel(torch.nn.Module):
         phase: torch.FloatTensor
         pred_dur: Optional[torch.LongTensor] = None
 
-    @torch.no_grad()
     def forward_with_tokens(
         self,
         input_ids: torch.LongTensor,
